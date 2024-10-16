@@ -1,0 +1,110 @@
+import { IncomingMessage, ServerResponse } from 'http'
+
+/**
+ * Connectjs middleware signatures.
+ */
+type Middleware = (request: IncomingMessage, response: ServerResponse, next: (error: any) => void) => void
+type ErrorMiddleware = (error: Error, request: IncomingMessage, response: ServerResponse, next: (error: any) => void) => void
+
+/**
+ * Applies Connectjs middlewares to http requests.
+ * The middlewares that handle errors are contained in a separate queue.
+ */
+class Router {
+	layers: { route: RegExp, middleware: Middleware }[] = []
+	errorLayers: { route: RegExp, middleware: ErrorMiddleware }[] = []
+
+	getMatchingRoutes(url: string, error: boolean) {
+		const layers = !error ? this.layers : this.errorLayers
+		const filtered = []
+		
+		for (let i = 0; i < layers.length; i++) {
+			const layer = layers[i]
+			
+			if (layer.route.test(url) === true) filtered.push(layer)
+		}
+
+		return filtered // cache this
+	}
+
+	/**
+	 * Handle server requests, punting them down the middleware stack.
+	 * Uses a loop instead of recursion to process middlewares.
+	 */
+	handleRequest: Middleware = (request, response, next) => {
+		let url = request.url? request.url : '/'
+		let i = 0
+		let continueQueue = true
+		let error: any = null
+		let queue: Function[] = this.getMatchingRoutes(url)
+		
+		const _next = (_error: any) => {
+			if (_error) {
+				if (!error) {
+					queue = this.getMatchingRoutes(url, true)
+					i = 0
+				}
+				
+				error = _error
+			} else i++
+			
+			if (i < queue.length) continueQueue = true
+		}
+		
+		while (queue.length > 0 && continueQueue) {
+			continueQueue = false
+			
+			try {
+				if (!error) {
+					queue[i].middleware(request, response, _next)
+				} else {
+					queue[i].middleware(error, request, response, _next)
+				}
+			} catch (_error) {
+				_next(_error)
+			}
+		}
+		
+		next(error)
+	}
+	
+	/**
+	 * Utilize the given middleware `handle` to the given `route`,
+	 * defaulting to _/_. This "route" is the mount-point for the
+	 * middleware, when given a value other than _/_ the middleware
+	 * is only effective when that segment is present in the request's
+	 * pathname.
+	 *
+	 * For example if we were to mount a function at _/admin_, it would
+	 * be invoked on _/admin_, and _/admin/settings_, however it would
+	 * not be invoked for _/_, or _/posts_.
+	 */
+	use(route: Middleware | ErrorMiddleware | RegExp | string, ...middlewares: (Middleware | ErrorMiddleware)[]) {
+		// one argument
+		if (typeof route !== 'function') {
+			if (middlewares.length === 0) throw new TypeError('Single argument must be a function.')
+			
+			if (typeof route === 'string') {
+				route = new RegExp(route)
+			} else if (!(route instanceof RegExp)) throw new TypeError('Argument 0 must be a function, RegExp, or string.')
+		} else {
+			middlewares.push(route)
+			route = /^\/$/
+		}
+		
+		for (let i = 0; i < middlewares.length; i++) {
+			const middleware = middlewares[i]
+			
+			if (middleware.length < 4) {
+				this.layers.push({ route, middleware })
+			} else {
+				this.errorLayers.push({ route, middleware })
+			}
+		}
+		
+		return this
+	}
+}
+
+export { Router }
+export default { Router }
