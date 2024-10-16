@@ -13,7 +13,7 @@
     "type-check": "tsc -noEmit -w",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles"
   },
-  "author": "DeAundre Payne <deaundre.payne@gmail.com>",
+  "author": "DeAundre Payne <deaundre.payne@gmail.com> (https://github.com/dandre3000)",
   "keywords": [
     "framework",
     "web",
