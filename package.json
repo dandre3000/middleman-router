@@ -12,7 +12,8 @@
   "scripts": {
     "lint": "npx eslint Router.js",
     "type-check": "tsc -noEmit -w",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles",
+	"example": "node examples/hello-world/index.js"
   },
   "author": "DeAundre Payne <deaundre.payne@gmail.com> (https://github.com/dandre3000)",
   "keywords": [
