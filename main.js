@@ -107,12 +107,12 @@ export class Router {
 	 * @public
 	 */
 	requestListener(request, response, done) {
-		// METHOD middlewares go last
+		// GET, POST etc. middlewares go after USE
 		const middlewares = this.#routes.USE.concat(this.#routes[request.method])
 		/** @type {*} */
-		let error = void(0)
+		let error = undefined
 		let nextCalled = true
-		const pathname = request.url === void(0) ? '/' : request.url
+		const pathname = request.url === undefined ? '/' : request.url
 		
 		/**
 		 * @param {*} _error
@@ -123,7 +123,7 @@ export class Router {
 		}
 		
 		// non ERROR middlewares
-		for (let i = 0; error === void(0) && nextCalled === true && i < middlewares.length; i++) {
+		for (let i = 0; error === undefined && nextCalled === true && i < middlewares.length; i++) {
 			nextCalled = false
 			
 			// String.search works with a string or RegExp.
@@ -140,10 +140,10 @@ export class Router {
 			}
 		}
 		
-		// ERROR middlewares
+		// ERROR middlewares go last
 		nextCalled = true
 	
-		for (let i = 0; error !== void(0) && nextCalled === true && i < this.#routes.ERROR.length; i++) {
+		for (let i = 0; error !== undefined && nextCalled === true && i < this.#routes.ERROR.length; i++) {
 			nextCalled = false
 			
 			// String.search works with a string or RegExp.
@@ -156,20 +156,18 @@ export class Router {
 			try { this.#routes.ERROR[i].middleware(error, request, response, next) } catch (_error) {
 				console.error(_error)
 				
-				// Send 500 if ERROR middleware throws
-				if (response.headersSent === false) {
-					response.writeHead(500)
-					response.end()
-				}
+				error = _error
 			}
 		}
 		
-		// If nothing has been sent yet call done if it exists or send 404.
+		// If nothing has been sent yet call done if it exists, send 500 if an error has not been handled, else send 404.
 		if (response.headersSent === false) {
 			if (typeof done === 'function') {
 				done(error)
 			} else {
-				response.writeHead(404)
+				// my finalhandler
+				error === undefined ? response.writeHead(404) : response.writeHead(500)
+				
 				response.end()
 			}
 		}
