@@ -1,4 +1,4 @@
-import {expect, jest, test} from '@jest/globals'
+import { expect, jest, test } from '@jest/globals'
 import { Router } from '../main.js'
 import { createServer, IncomingMessage, request as httpRequest, ServerResponse } from 'http'
 
@@ -9,40 +9,16 @@ const server = createServer((request, response) => {
 })
 
 const port = 420
-let testCount = 0
+let localRequestCount = 0
 
-server.listen(port)
-
-test('should not stack overflow with a large sync stack', () => {
-	testCount++
+const sendRequest = (hostname, port, path, method, onend, onerror) => {
+	if (hostname === '127.0.0.1') localRequestCount++
 	
-	let finish = 0
-	const max = 10000
-	const middleware = (request, response, next) => {
-		next()
-	}
-	
-	router.use('test1', (request, response, next) => {
-		finish++
-		
-		next()
-	})
-	
-	for (let i = 0; i < max; i++) {
-		router.use('test1', middleware)
-	}
-	
-	router.use('test1', (request, response, next) => {
-		finish++
-		
-		next()
-	})
-
-	const testRequest = httpRequest({
-		hostname: '127.0.0.1',
+	const request = httpRequest({
+		hostname,
 		port,
-		path: '/test1',
-		method: 'GET'
+		path,
+		method
 	}, (response) => {
 		response.setEncoding('utf8')
 		
@@ -51,122 +27,106 @@ test('should not stack overflow with a large sync stack', () => {
 		})
 		
 		response.on('end', () => {
-			expect(finish).toEqual(2)
+			if (typeof onend === 'function') onend()
 			
-			testCount--
-			if (testCount === 0) server.close()
+			if (hostname === '127.0.0.1') {
+				localRequestCount--
+				if (localRequestCount === 0) server.close()
+			}
 		})
 	})
 	
-	testRequest.on('error', error => {
-		console.error(`problem with request: ${error.message}`)
+	request.on('error', error => {
+		// console.error(`problem with request: ${error.message}`)
+		if (typeof onerror === 'function') onerror()
 		
-		testCount--
-		if (testCount === 0) server.close()
+		if (hostname === '127.0.0.1') {
+			localRequestCount--
+			if (localRequestCount === 0) server.close()
+		}
 	})
 	
-	testRequest.end()
+	request.end()
+}
+
+server.listen(port)
+
+test('should apply the middleware only if it matches the given route', () => {
+	let i = 0
+	
+	router.connect('/test1', (request, response, next) => {
+		i++
+		
+		next()
+	})
+	
+	sendRequest('127.0.0.1', port, '/', 'CONNECT', () => {
+		expect(i).toEqual(0)
+	})
+})
+
+test('should handle a large middleware queue', () => {
+	let count = 0
+	const max = 10000
+	const middleware = (request, response, next) => {
+		count++
+		next()
+	}
+	
+	for (let i = 0; i < max; i++) {
+		router.use('/test2', middleware)
+	}
+
+	sendRequest('127.0.0.1', port, '/test2', 'CONNECT', () => {
+		expect(count).toEqual(max)
+	})
 })
 
 test('should process middlewares added with .use() 1st independent of execution order', () => {
-	testCount++
-	
 	let used = false
 	let first = false
 	
-	router.get('test2', (request, response, next) => {
+	router.connect('/test3', (request, response, next) => {
 		first = used === true ? true : false
 		
 		next()
 	})
 	
-	router.use('test2', (request, response, next) => {
+	router.use('/test3', (request, response, next) => {
 		used = true
 		
 		next()
 	})
 	
-	const testRequest = httpRequest({
-		hostname: '127.0.0.1',
-		port,
-		path: '/test2',
-		method: 'GET'
-	}, (response) => {
-		response.setEncoding('utf8')
-		
-		response.on('data', (chunk) => {
-			console.log(`BODY: ${chunk}`)
-		})
-		
-		response.on('end', () => {
-			expect(first).toEqual(true)
-			
-			testCount--
-			if (testCount === 0) server.close()
-		})
+	sendRequest('127.0.0.1', port, '/test3', 'CONNECT', () => {
+		expect(first).toEqual(true)
 	})
-	
-	testRequest.on('error', error => {
-		console.error(`problem with request: ${error.message}`)
-		
-		testCount--
-		if (testCount === 0) server.close()
-	})
-	
-	testRequest.end()
 })
 
 test('should process middlewares added with .error() last independent of execution order', () => {
-	testCount++
-	
 	let arr = []
 	
-	router.error('test2', (error, request, response, next) => {
+	router.error('/test4', (error, request, response, next) => {
 		arr.push(3)
 		
 		next()
 	})
 	
-	router.get('test2', (request, response, next) => {
+	router.connect('/test4', (request, response, next) => {
 		arr.push(2)
 		
 		next(true)
 	})
 	
-	router.use('test2', (request, response, next) => {
+	router.use('/test4', (request, response, next) => {
 		arr.push(1)
 		
 		next()
 	})
 	
-	const testRequest = httpRequest({
-		hostname: '127.0.0.1',
-		port,
-		path: '/test2',
-		method: 'GET'
-	}, (response) => {
-		response.setEncoding('utf8')
-		
-		response.on('data', (chunk) => {
-			console.log(`BODY: ${chunk}`)
-		})
-		
-		response.on('end', () => {
-			expect(arr[0]).toEqual(1)
-			expect(arr[1]).toEqual(2)
-			expect(arr[2]).toEqual(3)
-			
-			testCount--
-			if (testCount === 0) server.close()
-		})
+	sendRequest('127.0.0.1', port, '/test4', 'CONNECT', () => {
+		expect(arr[0]).toEqual(1)
+		expect(arr[1]).toEqual(2)
+		expect(arr[2]).toEqual(3)
 	})
-	
-	testRequest.on('error', error => {
-		console.error(`problem with request: ${error.message}`)
-		
-		testCount--
-		if (testCount === 0) server.close()
-	})
-	
-	testRequest.end()
 })
