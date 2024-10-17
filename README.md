@@ -1,5 +1,5 @@
 # router
- HTTP request middleware framework.
+HTTP request middleware framework. Uses for loops instead of recursion to process middlewares.
 
 Copyright (c) 2024 dandre3000
 
