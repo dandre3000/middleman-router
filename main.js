@@ -5,9 +5,8 @@ import { IncomingMessage, ServerResponse } from 'http'
 /**
  * @callback insertMiddleware
  * 
- * Add middlewares to the router list. Each route corresponds to a node, each a child of the
- * previous one. The request must match each route to execute the given middlewares.
- * method may be "use", "error", or any HTTP method in all lower case. "use" middlewares are used for all requests and
+ * Add middlewares to the router list. The request must match each route to execute the given middlewares.
+ * Method may be "use", "error", or any HTTP method in all lower case. "use" middlewares are used for all requests and
  * are sorted before any other method. "error" middlewares are used after an error occurs in
  * another middleware.
  * 
