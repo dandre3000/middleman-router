@@ -1,5 +1,5 @@
 {
-  "name": "router",
+  "name": "middleman-router",
   "version": "1.0.0",
   "description": "HTTP request middleware framework.",
   "devDependencies": {
