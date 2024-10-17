@@ -6,7 +6,7 @@ import { IncomingMessage, ServerResponse } from 'http'
  * @callback insertMiddleware
  * 
  * Add middlewares to the router list. The request must match each route to execute the given middlewares.
- * Method may be "use", "error", or any HTTP method in all lower case. "use" middlewares are used for all requests and
+ * Method may be "use", "error", or any http method in all lower case. "use" middlewares are used for all requests and
  * are sorted before any other method. "error" middlewares are used after an error occurs in
  * another middleware.
  * 
@@ -29,6 +29,7 @@ export class Router {
 		ERROR: [],
 		GET: [],
 		POST: []
+		// etc. for each http METHOD... filled by constructor.
 	}
 	
 	/**
@@ -54,6 +55,8 @@ export class Router {
 	 * @type {insertMiddleware}
 	 */
 	post() {}
+	
+	// etc... filled by addMethod
 	
 	/**
 	 * @method addMethod
@@ -173,7 +176,7 @@ export class Router {
 	}
 }
 
-// add methods to prototype
+// complete the prototype
 for (let i = METHODS.length - 1; i > -1; i--) {
 	Router.addMethod(METHODS[i])
 }
