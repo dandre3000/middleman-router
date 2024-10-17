@@ -3,7 +3,7 @@
 import { IncomingMessage, ServerResponse } from 'http'
 
 /**
- * @callback method
+ * @callback insertMiddleware
  * 
  * Add middlewares to the router list. Each route corresponds to a node, each a child of the
  * previous one. The request must match each route to execute the given middlewares.
@@ -34,30 +34,40 @@ export class Router {
 	
 	/**
 	 * @method use
-	 * @type {method}
+	 * @type {insertMiddleware}
 	 */
 	use() {}
 	
 	/**
 	 * @method error
-	 * @type {method}
+	 * @type {insertMiddleware}
 	 */
 	error() {}
 	
 	/**
 	 * @method get
-	 * @type {method}
+	 * @type {insertMiddleware}
 	 */
 	get() {}
 	
 	/**
 	 * @method post
-	 * @type {method}
+	 * @type {insertMiddleware}
 	 */
 	post() {}
 	
-	static addMethod(METHOD) {
-		Router.prototype[METHOD.toLowerCase()] = function(route, ...middlewares) {
+	/**
+	 * @method addMethod
+	 * 
+	 * Call all matching middlewares for a request in the appropriate order
+	 * using for loops instead of recursion.
+	 * 
+	 * @param {string} method
+	 * @public
+	 */
+	static addMethod(method) {
+		/** @type {insertMiddleware} */
+		function insertMiddleware(route, ...middlewares) {
 			let j = 1
 			
 			if (typeof route !== 'string' && !(route instanceof RegExp)) {
@@ -66,15 +76,17 @@ export class Router {
 				route = '/'
 			}
 			
-			// Add the route and each middleware to the array associated with the given http METHOD.
+			// Add the route and each middleware to the array associated with the given http method.
 			for (let k = 0; k < middlewares.length; k++) {
 				if (typeof middlewares[k] !== 'function') {
 					throw new TypeError(`Argument ${k + j} ${middlewares[k]} must be a function.`)
 				}
 				
-				this.#routes[METHOD].push({ route, middleware: middlewares[k]})
+				this.#routes[method].push({ route, middleware: middlewares[k]})
 			}
 		}
+		
+		/** @type {Object<string, *>} */ (Router.prototype)[method.toLowerCase()] = insertMiddleware
 	}
 	
 	constructor() {
